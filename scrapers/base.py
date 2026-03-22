@@ -13,7 +13,8 @@ def is_valid_location(location_text):
         if excluded in loc:
             return False
     # Check postcodes - G1-G4, G11, G12, G20 are close enough
-    postcode_match = re.search(r'g(\d+)', loc)
+    # Match Glasgow postcodes (G1, G2, etc.) but not DG1, EG1 etc.
+    postcode_match = re.search(r'(?<![a-z])g(\d+)', loc)
     if postcode_match:
         district = int(postcode_match.group(1))
         # G1-G4 = city centre, G5 = Gorbals, G11 = Partick/Thornwood,
@@ -25,7 +26,8 @@ def is_valid_location(location_text):
         return False
 
     for valid in VALID_AREAS:
-        if valid in loc:
+        # Use word-boundary-aware matching for short postcode prefixes
+        if re.search(r'(?<![a-z])' + re.escape(valid) + r'(?![a-z])', loc):
             return True
     return False
 

@@ -58,12 +58,12 @@ def generate_cover_letter_pdf(cover_letter_text, job):
     # Employer info if available
     employer = job.get("employer")
     if employer:
-        employer_clean = " ".join(employer.split())
+        employer_clean = _sanitise_text(" ".join(employer.split()))
         pdf.set_font("Helvetica", "", 10)
         pdf.cell(0, 6, employer_clean, new_x="LMARGIN", new_y="NEXT", align="L")
         location = job.get("location", "")
         if location:
-            location_clean = " ".join(location.split())
+            location_clean = _sanitise_text(" ".join(location.split()))
             pdf.cell(0, 6, location_clean, new_x="LMARGIN", new_y="NEXT", align="L")
         pdf.ln(4)
 

@@ -77,71 +77,75 @@ async def process_new_jobs():
     log.info(f"Processing {len(jobs)} new jobs")
 
     for job in jobs:
-        log.info(f"\n=== Processing: {job['title']} at {job.get('employer', 'Unknown')} ===")
+        try:
+            log.info(f"\n=== Processing: {job['title']} at {job.get('employer', 'Unknown')} ===")
 
-        # Generate cover letter
-        cover_letter = generate_cover_letter(job)
-        update_job_status(job["url"], "new", cover_letter=cover_letter)
+            # Generate cover letter
+            cover_letter = generate_cover_letter(job)
+            update_job_status(job["url"], "new", cover_letter=cover_letter)
 
-        applied = False
+            applied = False
 
-        # Method 1: Direct email if employer email found
-        if job.get("employer_email") and is_safe_email(job["employer_email"]):
-            log.info(f"Sending direct email to {job['employer_email']}")
-            success = send_application_email(job["employer_email"], job, cover_letter)
-            if success:
-                update_job_status(
-                    job["url"], "applied",
-                    apply_method="direct_email",
-                    applied_at=datetime.now().isoformat(),
-                    cover_letter=cover_letter,
-                )
-                job["apply_method"] = "direct_email"
-                applied_jobs.append(job)
-                applied = True
-                log.info("Applied via direct email")
+            # Method 1: Direct email if employer email found
+            if job.get("employer_email") and is_safe_email(job["employer_email"]):
+                log.info(f"Sending direct email to {job['employer_email']}")
+                success = send_application_email(job["employer_email"], job, cover_letter)
+                if success:
+                    update_job_status(
+                        job["url"], "applied",
+                        apply_method="direct_email",
+                        applied_at=datetime.now().isoformat(),
+                        cover_letter=cover_letter,
+                    )
+                    job["apply_method"] = "direct_email"
+                    applied_jobs.append(job)
+                    applied = True
+                    log.info("Applied via direct email")
 
-        # Method 2: Playwright auto-apply on job board
-        if not applied:
-            log.info(f"Attempting auto-apply on {job['source']}")
-            success, reason = await auto_apply(job, cover_letter)
-            if success:
-                method = f"auto_apply_{job['source'].lower()}"
-                update_job_status(
-                    job["url"], "applied",
-                    apply_method=method,
-                    applied_at=datetime.now().isoformat(),
-                    cover_letter=cover_letter,
-                )
-                job["apply_method"] = method
-                applied_jobs.append(job)
-                applied = True
-                log.info(f"Applied: {reason}")
-            else:
-                log.info(f"Auto-apply failed: {reason}")
+            # Method 2: Playwright auto-apply on job board
+            if not applied:
+                log.info(f"Attempting auto-apply on {job['source']}")
+                success, reason = await auto_apply(job, cover_letter)
+                if success:
+                    method = f"auto_apply_{job['source'].lower()}"
+                    update_job_status(
+                        job["url"], "applied",
+                        apply_method=method,
+                        applied_at=datetime.now().isoformat(),
+                        cover_letter=cover_letter,
+                    )
+                    job["apply_method"] = method
+                    applied_jobs.append(job)
+                    applied = True
+                    log.info(f"Applied: {reason}")
+                else:
+                    log.info(f"Auto-apply failed: {reason}")
 
-                # Check if the failure revealed an email address
-                if reason and "Email application:" in reason:
-                    email_addr = reason.split("Email application:")[1].strip()
-                    if is_safe_email(email_addr):
-                        log.info(f"Found email in apply link: {email_addr}")
-                        success = send_application_email(email_addr, job, cover_letter)
-                        if success:
-                            update_job_status(
-                                job["url"], "applied",
-                                apply_method="direct_email",
-                                applied_at=datetime.now().isoformat(),
-                                cover_letter=cover_letter,
-                            )
-                            job["apply_method"] = "direct_email"
-                            applied_jobs.append(job)
-                            applied = True
+                    # Check if the failure revealed an email address
+                    if reason and "Email application:" in reason:
+                        email_addr = reason.split("Email application:")[1].strip()
+                        if is_safe_email(email_addr):
+                            log.info(f"Found email in apply link: {email_addr}")
+                            success = send_application_email(email_addr, job, cover_letter)
+                            if success:
+                                update_job_status(
+                                    job["url"], "applied",
+                                    apply_method="direct_email",
+                                    applied_at=datetime.now().isoformat(),
+                                    cover_letter=cover_letter,
+                                )
+                                job["apply_method"] = "direct_email"
+                                applied_jobs.append(job)
+                                applied = True
 
-        # Method 3: Queue for manual application (included in digest)
-        if not applied:
-            update_job_status(job["url"], "emailed", cover_letter=cover_letter)
-            manual_jobs.append((job, cover_letter))
-            log.info("Queued for manual application in daily digest")
+            # Method 3: Queue for manual application (included in digest)
+            if not applied:
+                manual_jobs.append((job, cover_letter))
+                log.info("Queued for manual application in daily digest")
+
+        except Exception as e:
+            log.error(f"Error processing job '{job.get('title', '?')}': {e}")
+            continue
 
     return applied_jobs, manual_jobs
 
@@ -166,8 +170,13 @@ async def run():
     # Step 3: Process and apply
     applied_jobs, manual_jobs = await process_new_jobs()
 
-    # Step 4: Send one daily digest email
-    send_daily_digest(applied_jobs, manual_jobs)
+    # Step 4: Send one daily digest email, then mark manual jobs
+    digest_sent = send_daily_digest(applied_jobs, manual_jobs)
+    if digest_sent:
+        for job, cover_letter in manual_jobs:
+            update_job_status(job["url"], "emailed", cover_letter=cover_letter)
+    else:
+        log.warning("Digest failed to send - manual jobs kept as 'new' for retry")
 
     # Step 5: Summary
     stats = get_job_stats()
