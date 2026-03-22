@@ -21,10 +21,7 @@ def _attach_cover_letter_pdf(msg, cover_letter_text, job):
         pdf_attachment.add_header("Content-Disposition", "attachment", filename=filename)
         msg.attach(pdf_attachment)
     except Exception as e:
-        log.warning(f"Failed to generate cover letter PDF, attaching as text: {e}")
-        cl_attachment = MIMEText(cover_letter_text)
-        cl_attachment.add_header("Content-Disposition", "attachment", filename="Cover_Letter.txt")
-        msg.attach(cl_attachment)
+        log.error(f"Failed to generate cover letter PDF: {e}")
 
 
 def send_application_email(to_email, job, cover_letter):

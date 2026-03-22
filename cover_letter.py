@@ -53,6 +53,7 @@ RULES:
 - Show genuine enthusiasm for the specific role and place. If the employer name is known, reference it naturally.
 - Do NOT use fancy vocabulary - keep language simple, clear, and conversational.
 - Do NOT use cliches like "I believe I would be a great fit" or "I am writing to express my interest."
+- NEVER use em dashes (—) or en dashes (–). Use commas, full stops, or restructure the sentence instead.
 - Do NOT include a subject line, just the letter body.
 - Start with "Dear" followed by the employer name or "Hiring Manager".
 - End with "Kind regards, Jamal Ben Abdellah" and his phone number {PROFILE['phone']}.
