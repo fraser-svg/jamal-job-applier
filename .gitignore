@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+data/jobs.db
+data/*.log
+data/profile.json
+data/cv.pdf
+.playwright/
+.venv/
+node_modules/
