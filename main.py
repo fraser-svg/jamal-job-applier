@@ -4,18 +4,18 @@ Jamal Job Finder - Daily automated job search and application system.
 
 Searches multiple UK job boards for part-time kitchen/hospitality jobs
 in Glasgow, generates bespoke cover letters, and auto-applies.
+Sends a single daily digest email summarising all activity.
 """
 
 import asyncio
 import logging
 import sys
 from datetime import datetime
-from pathlib import Path
 
 from config import DATA_DIR
 from db import init_db, save_job, job_exists, is_duplicate, update_job_status, get_new_jobs, get_job_stats
 from cover_letter import generate_cover_letter
-from email_sender import send_application_email, send_fallback_email
+from email_sender import send_application_email, send_daily_digest
 from auto_apply import auto_apply
 from scrapers import ALL_SCRAPERS
 from scrapers.base import is_safe_email
@@ -64,11 +64,15 @@ def save_new_jobs(jobs):
 
 
 async def process_new_jobs():
-    """Generate cover letters and apply for all new jobs."""
+    """Generate cover letters and apply for all new jobs.
+    Returns (applied_jobs, manual_jobs) for the daily digest."""
+    applied_jobs = []
+    manual_jobs = []  # list of (job, cover_letter) tuples
+
     jobs = get_new_jobs()
     if not jobs:
         log.info("No new jobs to process")
-        return
+        return applied_jobs, manual_jobs
 
     log.info(f"Processing {len(jobs)} new jobs")
 
@@ -79,7 +83,6 @@ async def process_new_jobs():
         cover_letter = generate_cover_letter(job)
         update_job_status(job["url"], "new", cover_letter=cover_letter)
 
-        # Try auto-apply
         applied = False
 
         # Method 1: Direct email if employer email found
@@ -93,6 +96,8 @@ async def process_new_jobs():
                     applied_at=datetime.now().isoformat(),
                     cover_letter=cover_letter,
                 )
+                job["apply_method"] = "direct_email"
+                applied_jobs.append(job)
                 applied = True
                 log.info("Applied via direct email")
 
@@ -101,12 +106,15 @@ async def process_new_jobs():
             log.info(f"Attempting auto-apply on {job['source']}")
             success, reason = await auto_apply(job, cover_letter)
             if success:
+                method = f"auto_apply_{job['source'].lower()}"
                 update_job_status(
                     job["url"], "applied",
-                    apply_method=f"auto_apply_{job['source'].lower()}",
+                    apply_method=method,
                     applied_at=datetime.now().isoformat(),
                     cover_letter=cover_letter,
                 )
+                job["apply_method"] = method
+                applied_jobs.append(job)
                 applied = True
                 log.info(f"Applied: {reason}")
             else:
@@ -125,21 +133,17 @@ async def process_new_jobs():
                                 applied_at=datetime.now().isoformat(),
                                 cover_letter=cover_letter,
                             )
+                            job["apply_method"] = "direct_email"
+                            applied_jobs.append(job)
                             applied = True
 
-        # Method 3: Fallback - email Jamal
+        # Method 3: Queue for manual application (included in digest)
         if not applied:
-            log.info("Falling back to email notification")
-            success = send_fallback_email(job, cover_letter)
-            if success:
-                update_job_status(
-                    job["url"], "emailed",
-                    cover_letter=cover_letter,
-                )
-                log.info("Sent fallback email to Jamal")
-            else:
-                update_job_status(job["url"], "failed", cover_letter=cover_letter)
-                log.error("Failed to send fallback email")
+            update_job_status(job["url"], "emailed", cover_letter=cover_letter)
+            manual_jobs.append((job, cover_letter))
+            log.info("Queued for manual application in daily digest")
+
+    return applied_jobs, manual_jobs
 
 
 async def run():
@@ -160,17 +164,20 @@ async def run():
     log.info(f"New jobs saved: {new_count}")
 
     # Step 3: Process and apply
-    await process_new_jobs()
+    applied_jobs, manual_jobs = await process_new_jobs()
 
-    # Step 4: Summary
+    # Step 4: Send one daily digest email
+    send_daily_digest(applied_jobs, manual_jobs)
+
+    # Step 5: Summary
     stats = get_job_stats()
     log.info("\n" + "=" * 60)
     log.info("RUN COMPLETE - SUMMARY")
     log.info(f"  Total jobs in database: {stats['total']}")
-    log.info(f"  Applied: {stats['applied']}")
-    log.info(f"  Emailed to Jamal: {stats['emailed']}")
-    log.info(f"  Failed: {stats['failed']}")
-    log.info(f"  Skipped: {stats['skipped']}")
+    log.info(f"  Applied today: {len(applied_jobs)}")
+    log.info(f"  Manual (in digest): {len(manual_jobs)}")
+    log.info(f"  All-time applied: {stats['applied']}")
+    log.info(f"  All-time emailed: {stats['emailed']}")
     log.info("=" * 60)
 
 
