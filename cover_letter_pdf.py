@@ -5,6 +5,24 @@ from fpdf import FPDF
 from config import PROFILE
 
 
+def _sanitise_text(text):
+    """Replace unicode characters that Helvetica can't render."""
+    replacements = {
+        "\u2013": "-",   # en dash
+        "\u2014": "-",   # em dash
+        "\u2018": "'",   # left single quote
+        "\u2019": "'",   # right single quote
+        "\u201c": '"',   # left double quote
+        "\u201d": '"',   # right double quote
+        "\u2026": "...", # ellipsis
+        "\u00a0": " ",   # non-breaking space
+        "\u2022": "-",   # bullet
+    }
+    for char, replacement in replacements.items():
+        text = text.replace(char, replacement)
+    return text
+
+
 def generate_cover_letter_pdf(cover_letter_text, job):
     """Generate a professionally formatted cover letter PDF.
     Returns the PDF as bytes."""
@@ -53,8 +71,11 @@ def generate_cover_letter_pdf(cover_letter_text, job):
     pdf.set_font("Helvetica", "", 10.5)
     pdf.set_text_color(30, 30, 30)
 
+    # Sanitise text for Helvetica compatibility
+    clean_text = _sanitise_text(cover_letter_text)
+
     # Split into paragraphs and render
-    paragraphs = cover_letter_text.strip().split("\n\n")
+    paragraphs = clean_text.strip().split("\n\n")
     for i, para in enumerate(paragraphs):
         # Clean up whitespace within paragraph
         lines = para.strip().split("\n")
