@@ -17,6 +17,8 @@ _COVER_LETTER_FIELDS = {
     "personal_strengths", "languages", "willing_to_complete",
     "references", "available",
 }
+# Explicitly exclude: nationality, right_to_work, ni_number, share_code,
+# date_of_birth, personal_email, application_email, transport, target_roles
 _SAFE_PROFILE = {k: v for k, v in PROFILE.items() if k in _COVER_LETTER_FIELDS}
 
 

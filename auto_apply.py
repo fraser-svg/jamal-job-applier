@@ -48,7 +48,7 @@ async def _fill_input_fields(page):
         elif "name" in label:
             await inp.fill(PROFILE["name"])
         elif "email" in label:
-            await inp.fill(os.getenv("APP_EMAIL", ""))
+            await inp.fill(os.getenv("JAMAL_EMAIL", ""))
         elif "city" in label or "location" in label:
             await inp.fill("Glasgow")
         elif "post" in label and "code" in label:

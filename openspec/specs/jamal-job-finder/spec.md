@@ -73,8 +73,8 @@ An automated system that searches job boards every day for part-time kitchen and
 
 ## Configuration
 
-- **Jamal's email:** abdellahjamalben@gmail.com
-- **Jamal's phone:** 07386 219640
+- **Jamal's email:** (set in .env as JAMAL_EMAIL)
+- **Jamal's phone:** (set in data/profile.json)
 - **Location:** Garnethill, Glasgow
 - **Max hours:** 16 per week
 - **Max travel:** 50 minutes by bus/bike/foot

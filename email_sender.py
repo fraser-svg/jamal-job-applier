@@ -37,6 +37,10 @@ def send_application_email(to_email, job, cover_letter):
     clean_title = " ".join(job["title"].split())
     msg["Subject"] = f"Application – {clean_title} – Jamal Ben Abdellah"
 
+    if not APP_EMAIL or not APP_EMAIL_PASSWORD:
+        log.error("Email credentials not configured - cannot send application")
+        return False
+
     msg.attach(MIMEText(cover_letter, "plain"))
 
     # Attach CV
@@ -114,6 +118,10 @@ Keep going - good things are coming!
     msg["From"] = f"Jamal Job Finder <{APP_EMAIL}>"
     msg["To"] = JAMAL_EMAIL
     msg["Subject"] = f"Your daily job update - {today}"
+
+    if not APP_EMAIL or not APP_EMAIL_PASSWORD:
+        log.error("Email credentials not configured - cannot send digest")
+        return False
 
     msg.attach(MIMEText(body, "plain"))
 
